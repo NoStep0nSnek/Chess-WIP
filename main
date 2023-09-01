@@ -1,12 +1,40 @@
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <cmath>
+#include <bits/stdc++.h> // gives std::find
+
+namespace pieces {
+    class piece {
+        public:
+            int posX = 0;
+            int posY = 0;
+            int scope = 0; // getscope type
+            char display = 'U'; // UNSET
+            int type = 0; // 1 = King, 2 = Queen, 3 = Knight, 4 = Rook, 5 = Bishop, 6 = Pawn
+    };
+}
 
 class pos2d {
     public:
         int X = 0;
         int Y = 0;
+};
+
+//pieces::piece iiiii;
+
+//std::vector<pieces::piece> iiiiii = {iiiii};
+
+class pos4d {
+    public:
+        // pos to move to to
+        int X = 0;
+        int Y = 0;
+        // index of the piece to move
+        int base_index = 0;
+        //is_white;
+        std::vector<pieces::piece> *user_reference_vec;
 };
 
 int getscope (int type) {
@@ -28,17 +56,6 @@ int getscope (int type) {
     return -1;
 }
 
-namespace pieces {
-    class piece {
-        public:
-            int posX = 0;
-            int posY = 0;
-            int scope = 0; // getscope type
-            char display = 'U'; // UNSET
-            int type = 0; // 1 = King, 2 = Queen, 3 = Knight, 4 = Rook, 5 = Bishop, 6 = Pawn
-    };
-}
-
 using namespace std;
 using namespace pieces;
 
@@ -55,6 +72,8 @@ void init_boards() {
     
     white_pieces = {};
     black_pieces = {};
+    
+    // -1 types means that piece is captured
 
     // White //
     ////////////////////////////////////////////////
@@ -90,14 +109,14 @@ void init_boards() {
     bishop.display = 'B';
     bishop.scope = 8;
     bishop.posY = 7;
-    bishop.posX = 1;
+    bishop.posX = 2;
     white_pieces.push_back(bishop);
 
     bishop.type = 5;
     bishop.display = 'B';
     bishop.scope = 8;
     bishop.posY = 7;
-    bishop.posX = 6;
+    bishop.posX = 5;
     white_pieces.push_back(bishop);
 
     piece knight;
@@ -105,14 +124,14 @@ void init_boards() {
     knight.display = 'N';
     knight.scope = 8;
     knight.posY = 7;
-    knight.posX = 2;
+    knight.posX = 1;
     white_pieces.push_back(knight);
 
     knight.type = 3;
     knight.display = 'N';
     knight.scope = 8;
     knight.posY = 7;
-    knight.posX = 5;
+    knight.posX = 6;
     white_pieces.push_back(knight);
 
     piece queen;
@@ -163,28 +182,28 @@ void init_boards() {
     bishop.display = 'B';
     bishop.scope = 8;
     bishop.posY = 0;
-    bishop.posX = 1;
+    bishop.posX = 2;
     black_pieces.push_back(bishop);
 
     bishop.type = 5;
     bishop.display = 'B';
     bishop.scope = 8;
     bishop.posY = 0;
-    bishop.posX = 6;
+    bishop.posX = 5;
     black_pieces.push_back(bishop);
 
     knight.type = 3;
     knight.display = 'N';
     knight.scope = 8;
     knight.posY = 0;
-    knight.posX = 2;
+    knight.posX = 1;
     black_pieces.push_back(knight);
 
     knight.type = 3;
     knight.display = 'N';
     knight.scope = 8;
     knight.posY = 0;
-    knight.posX = 5;
+    knight.posX = 6;
     black_pieces.push_back(knight);
 
     queen.type = 2;
@@ -202,26 +221,29 @@ void init_boards() {
     black_pieces.push_back(king);
 }
 
-bool is_pos_taken(vector<piece> vec1, vector<piece> vec2, int posX, int posY) {
+bool is_pos_taken(vector<piece> vec1, vector<piece> vec2, int posX, int posY, bool is_white, bool both) {
 /*
 checks all of the pieces in the arrays to see if the target pos is taken
 */
-    for (int i = 0; i < vec1.size(); i++) {
-        if (vec1[i].posX == posX && vec1[i].posY == posY) {
-            return true;
+    if (is_white || both) {
+        for (int i = 0; i < vec1.size(); i++) {
+            if (vec1[i].posX == posX && vec1[i].posY == posY) {
+                return true;
+            }
         }
-    }
-
-    for (int i = 0; i < vec2.size(); i++) {
-        if (vec2[i].posX == posX && vec2[i].posY == posY) {
-            return true;
+    } 
+    if (!is_white || both)  {
+        for (int i = 0; i < vec2.size(); i++) {
+            if (vec2[i].posX == posX && vec2[i].posY == posY) {
+                return true;
+            }
         }
     }
 
     return false;
 }
 
-vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, piece _piece) {
+vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, piece _piece, bool is_white) {
     
     int posD_UpNLeft = -1;
     int posD_UpNRight = -1;
@@ -231,9 +253,9 @@ vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, 
     vector<pos2d> valid_moves = {};
 
     for (int i = 0; i < scope; i++) {
-        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY + i) && posD_UpNLeft == -1) {
-            posD_UpNLeft = scope;
-        } else {
+        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY + i, is_white, true)) {
+            posD_UpNLeft = i;
+        } else if (posD_UpNLeft == -1) {
             pos2d move;
             move.X = _piece.posX - i;
             move.Y = _piece.posY + i;
@@ -241,9 +263,9 @@ vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, 
         }
     }
     for (int i = 0; i < scope; i++) {
-        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY + i) && posD_UpNRight == -1) {
-            posD_UpNRight = scope;
-        } else {
+        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY + i, is_white, true)) {
+            posD_UpNRight = i;
+        } else if (posD_UpNRight == -1) {
             pos2d move;
             move.X = _piece.posX + i;
             move.Y = _piece.posY + i;
@@ -251,9 +273,9 @@ vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, 
         }
     }
     for (int i = 0; i < scope; i++) {
-        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY - i) && posD_DownNLeft == -1) {
-            int posD_DownNLeft = -1;
-        } else {
+        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY - i, is_white, true)) {
+            posD_DownNLeft = -1;
+        } else if (posD_DownNLeft == -1) {
             pos2d move;
             move.X = _piece.posX - i;
             move.Y = _piece.posY - 1;
@@ -261,9 +283,9 @@ vector<pos2d> get_moves_diag(vector<piece> vec1, vector<piece> vec2, int scope, 
         }
     }
     for (int i = 0; i < scope; i++) {
-        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY - i) && posD_DownNRight == -1) {
-            int posD_DownNRight = -1;
-        } else {
+        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY - i, is_white, true)) {
+            posD_DownNRight = -1;
+        } else if (posD_DownNRight == -1) {
             pos2d move;
             move.X = _piece.posX + i;
             move.Y = _piece.posY - i;
@@ -327,7 +349,7 @@ bool can_castle (vector<piece> vec1, vector<piece> vec2, piece start_piece, piec
     return true;
 }
 
-vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int scope, piece _piece) {
+vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int scope, piece _piece, bool is_white) {
     
     int posX_left = -1;
     int posX_right = -1;
@@ -337,7 +359,7 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
     vector<pos2d> valid_moves = {};
 
     for (int i = 0; i < scope; i++) {
-        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY) && posX_right == -1) {
+        if (is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY, is_white, true) && posX_right == -1) {
             posX_right == scope;
         } else {
             pos2d move;
@@ -345,7 +367,7 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
             move.Y = _piece.posY;
             valid_moves.push_back(move);
         }
-        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY) && posX_left == -1) {
+        if (is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY, is_white, true) && posX_left == -1) {
             posX_left == scope;
         } else {
             pos2d move;
@@ -353,7 +375,7 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
             move.Y = _piece.posY;
             valid_moves.push_back(move);
         }
-        if (is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + i) && posY_up == -1) {
+        if (is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + i, is_white, true) && posY_up == -1) {
             posY_up == scope;
         } else {
             pos2d move;
@@ -361,7 +383,7 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
             move.Y = _piece.posY + i;
             valid_moves.push_back(move);
         }
-        if (is_pos_taken(vec1, vec2, _piece.posX, _piece.posY - i) && posY_up == -1) {
+        if (is_pos_taken(vec1, vec2, _piece.posX, _piece.posY - i, is_white, true) && posY_up == -1) {
             posY_down == scope;
         } else {
             pos2d move;
@@ -375,7 +397,7 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
 }
 
 vector<pos2d> get_moves_pawns(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
-
+        
     vector<pos2d> valid_moves;
 
     int a = 1;
@@ -392,50 +414,88 @@ vector<pos2d> get_moves_pawns(vector<piece> vec1, vector<piece> vec2, piece _pie
         a = -2;
     }
 
-    if (!is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + a)) {
+    if (is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + a, is_white, false)) {
         pos2d move;
-        move.X = _piece.posX + 1;
+        move.X = _piece.posX;
         move.Y = _piece.posY + a;
         valid_moves.push_back(move);
     }
 
-    if (!is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + a)) {
+    if (is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + a, is_white, false)) {
         pos2d move;
         move.X = _piece.posX - 1;
         move.Y = _piece.posY + a;
         valid_moves.push_back(move);
     }
 
+    if (!is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + a, is_white, true)) { // set to both as it can't attack pieces directly in front of it
+        pos2d move;
+        move.X = _piece.posX;
+        move.Y = _piece.posY + a;
+        valid_moves.push_back(move);
+    }
+
+    if (!is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + (a / abs(a)), is_white, true)) { // set to both as it can't attack pieces directly in front of it
+        pos2d move;
+        move.X = _piece.posX;
+        move.Y = _piece.posY + (a / abs(a));
+        valid_moves.push_back(move);
+    }
+
     return valid_moves;
 }
 
-vector<pos2d> get_moves_knight(vector<piece> vec1, vector<piece> vec2, piece _piece) {
+vector<pos2d> get_moves_knight(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
     
     vector<pos2d> valid_moves;
 
-    for (int i = -2; i <= 2; i += 4) {
-        if (!is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY + 1)) {
+    for (int i = -2; i <= 3; i += 4) {
+        if (!is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY + 1, is_white, false)) {
             pos2d move;
-            move.X = _piece.posX;
-            move.Y = _piece.posY;
+            move.X = _piece.posX + i;
+            move.Y = _piece.posY + 1;
             valid_moves.push_back(move);
         }
-        if (!is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY - 1)) {
+        if (!is_pos_taken(vec1, vec2, _piece.posX + i, _piece.posY - 1, is_white, false)) {
             pos2d move;
-            move.X = _piece.posX;
-            move.Y = _piece.posY;
+            move.X = _piece.posX + i;
+            move.Y = _piece.posY - 1;
             valid_moves.push_back(move);
         }
-        if (!is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + i)) {
+        if (!is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY - 1, is_white, false)) {
             pos2d move;
-            move.X = _piece.posX;
-            move.Y = _piece.posY;
+            move.X = _piece.posX - i;
+            move.Y = _piece.posY - 1;
             valid_moves.push_back(move);
         }
-        if (!is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + i)) {
+        if (!is_pos_taken(vec1, vec2, _piece.posX - i, _piece.posY + 1, is_white, false)) {
             pos2d move;
-            move.X = _piece.posX;
-            move.Y = _piece.posY;
+            move.X = _piece.posX - i;
+            move.Y = _piece.posY + 1;
+            valid_moves.push_back(move);
+        }
+        if (!is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + i, is_white, false)) {
+            pos2d move;
+            move.X = _piece.posX + 1;
+            move.Y = _piece.posY + i;
+            valid_moves.push_back(move);
+        }
+        if (!is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + i, is_white, false)) {
+            pos2d move;
+            move.X = _piece.posX - 1;
+            move.Y = _piece.posY + i;
+            valid_moves.push_back(move);
+        }
+        if (!is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY - i, is_white, false)) {
+            pos2d move;
+            move.X = _piece.posX + 1;
+            move.Y = _piece.posY - i;
+            valid_moves.push_back(move);
+        }
+        if (!is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY - i, is_white, false)) {
+            pos2d move;
+            move.X = _piece.posX - 1;
+            move.Y = _piece.posY - i;
             valid_moves.push_back(move);
         }
     }
@@ -464,40 +524,86 @@ int search_for_piece(vector<piece> arr, pos2d pos) {
 
 // start posX & start posY can be retrieved from _piece
 
-bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d endpos, bool is_white) {
+bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d endpos, bool is_white, bool AI = false) {
+
+    vector<piece> users_vec = vec1;
+    vector<piece> enemy_vec = vec1;
     
-    vector<pos2d> moves_straight = get_moves_straight(vec1, vec2, getscope(_piece.type), _piece);
-    vector<pos2d> moves_diag = get_moves_diag(vec1, vec2, getscope(_piece.type), _piece);
-    vector<pos2d> moves_pawns = get_moves_pawns(vec1, vec2, _piece, is_white);
-    vector<pos2d> moves_knights = get_moves_knight(vec1, vec2, _piece);
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
 
-    for (int i = 0; i < moves_straight.size(); i++) {
-        if (moves_straight[i].X == endpos.X || moves_straight[i].Y == endpos.Y) {
-            return true;
+    if (AI == false) {
+        for (int i = 0; i < users_vec.size(); i++) {
+            if (users_vec[i].posX == endpos.X && users_vec[i].posY == endpos.Y) {
+                return false;
+            }
         }
     }
 
-    for (int i = 0; i < moves_diag.size(); i++) {
-        if (moves_diag[i].X == endpos.X || moves_diag[i].Y == endpos.Y) {
-            return true;
+    if (_piece.type == 1 || _piece.type == 2 || _piece.type == 4) {
+        vector<pos2d> moves_straight = get_moves_straight(vec1, vec2, getscope(_piece.type), _piece, is_white);
+        for (int i = 0; i < moves_straight.size(); i++) {
+            if (is_white) {
+                cout << _piece.posY << "S,";
+            }
+            if (moves_straight[i].X == endpos.X && moves_straight[i].Y == endpos.Y) {
+                return true;
+            }
         }
     }
 
-    for (int i = 0; i < moves_knights.size(); i++) {
-        if (moves_knights[i].X == endpos.X || moves_knights[i].Y == endpos.Y) {
-            return true;
+    if (_piece.type == 1 || _piece.type == 2 || _piece.type == 5) { 
+        // if (is_white) {
+        //     cout << _piece.posY << "D,";
+        // }
+        vector<pos2d> moves_diag = get_moves_diag(vec1, vec2, getscope(_piece.type), _piece, is_white);
+        for (int i = 0; i < moves_diag.size(); i++) {
+            if (moves_diag[i].X == endpos.X && moves_diag[i].Y == endpos.Y) {
+                return true;
+            }
+        }
+    }
+    // checks that the king has not moved more than 1 space
+    if (_piece.type == 1) {
+        if (abs(_piece.posX - endpos.X) > 1) {
+            return false;
+        }
+        if (abs(_piece.posY -  endpos.Y) > 1) {
+            return false;
         }
     }
 
-    for (int i = 0; i < moves_pawns.size(); i++) {
-        if (moves_pawns[i].X == endpos.X || moves_pawns[i].Y == endpos.Y) {
-            return true;
+    if (_piece.type == 3) {
+        vector<pos2d> moves_knights = get_moves_knight(vec1, vec2, _piece, is_white);
+        for (int i = 0; i < moves_knights.size(); i++) {
+            if (moves_knights[i].X == endpos.X && moves_knights[i].Y == endpos.Y) {
+                return true;
+            }
         }
     }
-    
+
+    if (_piece.type == 6) {
+        // if (is_white) {
+        //     cout << _piece.posY << "P,";
+        // }
+        vector<pos2d> moves_pawns = get_moves_pawns(vec1, vec2, _piece, is_white);
+        for (int i = 0; i < moves_pawns.size(); i++) {
+            if (moves_pawns[i].X == endpos.X && moves_pawns[i].Y == endpos.Y) {
+                //cout << "MP" << (moves_pawns[i].Y == endpos.Y) << "|";
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 
+// checks to see if is_white can checkmate !is_white
 int is_in_check_or_checkmate(vector<piece> vec1, vector<piece> vec2, bool is_white) {
 
     vector<piece> users_vec;
@@ -609,117 +715,472 @@ bool move_pos(vector<piece>& vec1, vector<piece>& vec2, pos2d start_pos, pos2d e
 }
 
 
-/* vector<pos2d> calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
-    vector<vector<pos2d>> combos;
-    vector<vector<pos2d>> checkmate_combos;
+// type (1 = row, 2 = column, 3 = diagonal)
 
-    for (int i = 0; i < 100; i++) {
-        cout << "\n";
-        vector<pos2d> combo;
-        vector<piece> temp_white_pieces = white_pieces;
-        vector<piece> temp_black_piece = black_pieces;
+bool is_piece_at_risk(vector<piece> vec1, vector<piece> vec2, bool is_white, piece _piece, pos2d pos, bool use_my_pos) {
 
-        bool checker = false; // will this combo put the enemy in check or checkmate
-        for (int j = 0; j < 8; j++) {
-            for (int k = 0; k < 8; k++) {
-                printf("%d",k);
-                pos2d pos;
-                pos.X = j;
-                pos.Y = k;
+    vector<piece> users_vec;
+    vector<piece> enemy_vec;
 
-                piece _piece;
-                int a;
-                if (is_white) {
-                    a = search_for_piece(temp_white_pieces, pos);
-                } else {
-                    a = search_for_piece(temp_black_piece, pos);
-                }
-                if (a != -1) {
-                    _piece = temp_white_pieces[a];
-                }
-                
-                for (int a = 0; a < 8; a++) {
-                    for (int b = 0; b < 8; b++) {
-                        pos2d endpos;
-                        endpos.X = i;
-                        endpos.Y = j;
-                        if (is_move_valid(vec1, vec2, _piece, pos, is_white)) {
-                            combo.push_back(pos);
-                            combo.push_back(endpos);
-                            //combo[i].push_back(pos);
-                            //combo.push_back(endpos);
-                        }
-                        // this slows down the program dramatically
-                        //if (is_move_valid(vec1, vec2, _piece, pos, is_white) && is_in_check_or_checkmate(white_pieces, black_pieces, is_white)) {
-                            //checker = true;
-                        //}
-                    }
-                }
-            }
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
 
-            if (checker) {
-                checkmate_combos.push_back(combo);
-            }
+    for (int i = 0; i < 8; i++) {
+        pos2d end_pos;
+        end_pos.X = _piece.posX;
+        end_pos.Y = _piece.posY;
+
+        if (pos.X != -1) {
+            end_pos = pos;
         }
-       
-        // checks to see if the combo exists in the vector combos, if not it inserts it into it
-        bool match = false;
-        int matches = 0;
-        for (int i = 0; i < combos.size(); i++) {
-            matches = 0;
-            for (int j = 0; j < combos[i].size(); j++) {
-                if (j > combo.size()) {
-                    matches = 0;
-                    break;
-                }
-                if (combos[i][j].X == combo[i].X && combos[i][j].Y == combo[i].Y) {
-                    matches++;
-                }
-            }
-            if (matches == combos[i].size()) {
-                match = true;
-            }
-        }
-        if (!match) {
-            combos.push_back(combo);
+
+        if (is_move_valid(vec1, vec2, enemy_vec[i], end_pos, !is_white)) {
+            return true;
         }
     }
 
-    vector<pos2d> shortest_combo = checkmate_combos[0];
-
-    for (int i = 0; i < checkmate_combos.size(); i++) {
-        if (checkmate_combos[i].size() < shortest_combo.size()) {
-            shortest_combo = checkmate_combos[i];
-        }
-    }
-
-    vector<pos2d> return_vec;
-    pos2d pos;
-    pos.X = shortest_combo[0].X;
-    pos.Y = shortest_combo[0].Y;
-    return_vec.push_back(pos);
-
-    pos.X = shortest_combo[1].X;
-    pos.Y = shortest_combo[1].Y;
-    return_vec.push_back(pos);
-
-    cout << "A";
-    return return_vec;
-} */
-
-
-vector<pos2d> calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
-
-    vector<piece> temp_black_pieces = black_pieces;
-    vector<piece> temp_white_pieces = white_pieces;
-    pos2d cords_used[5000][150];
-    // return once a checkmate combo is found
-
-    for (int i = 0; i < 150; i++) {
-
-    }
+    return false;
 }
 
+bool is_piece_protected(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
+
+    vector<piece> &users_vec = vec1;
+    vector<piece> &enemy_vec = vec1;
+    
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    /*int index = 0;
+    for (int i = 0; i < users_vec.size(); i++) {
+        if (users_vec[i].posX == _piece.posX && users_vec[i].posY == _piece.posY) {
+            index = i;
+            break;
+        }
+    }*/
+
+    pos2d endpos;
+    endpos.X = _piece.posX;
+    endpos.Y = _piece.posY;
+    
+    _piece.posX -= 10;
+
+    for (int i = 0; i < 8; i++) {
+        if (is_move_valid(vec1, vec2, _piece, endpos, is_white, true)) {
+            return true;
+        }
+    }
+    
+    _piece.posX += 10;
+
+    return false;
+}
+
+bool is_blocked(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d end_pos, int type, bool is_white) {
+    if (type == 1) {
+        int min = std::min(_piece.posX, end_pos.X);
+        int max = std::max(_piece.posX, end_pos.X);
+        for (int i = min; i < max; i++) {
+            if (vec1[i].posY == _piece.posY && vec1[i].posX == i) {
+                return true;
+            }
+
+            if (vec2[i].posY == _piece.posY && vec2[i].posX == i) {
+                return true;
+            }
+        }
+    }
+
+    if (type == 2) {
+        int min = std::min(_piece.posY, end_pos.Y);
+        int max = std::max(_piece.posY, end_pos.Y);
+        for (int i = min; i < max; i++) {
+            if (vec1[i].posX == _piece.posX && vec1[i].posY == i) {
+                return true;
+            }
+
+            if (vec2[i].posX == _piece.posX && vec2[i].posY == i) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+int is_rook_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
+
+    bool doubled_on_X = false;
+    bool doubled_on_Y = false;
+    bool rook_on_7th = false;
+    
+    if (_piece.type != 4) { // checks if its a rook or not
+        return false;
+    }
+    
+
+    vector<piece> user_vec;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        user_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        enemy_vec = vec1;
+        user_vec = vec2;
+    }
+
+    // checks if rook is doubled (next to or above each other)
+    for (int i = 0; i < user_vec.size(); i++) {
+        // is row or column blocked?
+        if (user_vec[i].type = _piece.type) {
+
+            pos2d end_pos;
+            end_pos.X = user_vec[i].posX;
+            end_pos.Y = user_vec[i].posY;
+
+            if (!is_blocked(vec1, vec2, _piece, end_pos, 1, is_white) && user_vec[i].posX == _piece.posX) {
+                doubled_on_X = true;
+            }
+
+            if (!is_blocked(vec1, vec2, _piece, end_pos, 2, is_white) && user_vec[i].posY == _piece.posY) {
+                doubled_on_Y = true;
+            }
+        }
+    }
+
+    // checks if rook is on 7th
+    if ((is_white && _piece.posY == 1) || ( !is_white && _piece.posY == 6)) { // counting starts at 0, keep that in mind
+        rook_on_7th = true;
+    }
+
+    // checks if the file that the rook is on is open (returns an int from 1 - 8; 8 being completely full)
+    int open_pieces_x = 0;
+
+    for (int i = 0; i < 8; i++) {
+        int max_upper = _piece.posY;
+        int max_lower = _piece.posY;
+        if (enemy_vec[i].posX == _piece.posX) {
+            if (enemy_vec[i].posY > max_upper && max_upper != _piece.posY) {
+                max_upper =  enemy_vec[i].posY;
+            }
+            if (enemy_vec[i].posY < max_lower && max_lower != _piece.posY) {
+                max_upper =  enemy_vec[i].posY;
+            }
+        }
+        if (user_vec[i].posX == _piece.posX) {
+            if (user_vec[i].posY > max_upper && max_upper != _piece.posY) {
+                max_upper =  user_vec[i].posY;
+            }
+            if (user_vec[i].posY < max_lower && max_lower != _piece.posY) {
+                max_upper =  user_vec[i].posY;
+            }
+        }
+    }
+
+    return rook_on_7th + doubled_on_X + doubled_on_Y + open_pieces_x;
+}
+
+/*"(a)Advanced knights (at e5, d5, c5, f5, e6, d6, c6, f6), especially if protected by
+pawn and free from pawn attack." */
+bool is_knight_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
+
+    if (_piece.type != 3) {
+        return false;
+    }
+
+    //bool protected_ = is_piece_protected(vec1, vec2, is_white, _piece);
+    bool good_space = false;
+
+    for (int i = 0; i < 2; i++) {
+        int a;
+        if (is_white) {
+            a = 5 + i;
+        } else {
+            a = 3 + i;
+        }
+        if ((_piece.posX == 'E' - 65 && _piece.posY == a) || (_piece.posX == 'D' - 65 && _piece.posY == a) || (_piece.posX == 'C' - 65 && _piece.posY == a) || (_piece.posX == 'F' - 65 && _piece.posY == a)) {
+            good_space = true;
+        }
+    }
+
+    return good_space;
+}
+
+/*(2)Pawn formation:
+(a)Backward, isolated and doubled pawns.
+(b)Relative control of centre (pawns at e4, d4, c4).
+(c)Weakness of pawns near king (e.g. advanced g pawn).
+(d)Pawns on opposite colour squares from bishop.
+(e)Passed pawns. 
+*/
+int is_pawn_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white)
+{
+
+    if (_piece.type != 6) {
+        return false;
+    }
+
+    vector<piece> users_vec;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    bool isolated = true;
+    bool passed = false;
+    bool backwards = false;
+    bool opposite_of_bishop = false;
+
+    // checks if its isolated (avoid this)
+
+    for (int i = 0; i < users_vec.size(); i++) {
+        if (users_vec[i].type == 6 && (users_vec[i].posX == _piece.posX - 1) || (users_vec[i].posX == _piece.posX + 1)) {
+            isolated = false;
+        }
+    }
+
+    // checks if pawn is backwards (avoid this)
+
+    for (int i = 0; i < users_vec.size(); i++) {
+        if (users_vec[i].posY > _piece.posY) {
+            backwards = true;
+            break;
+        }
+    }
+
+
+    // checks if pawn is on an oppisite color sqaure from the enemies bishop 
+    // first to make sure that there is only one bishop
+    bool one_bishop = false;
+    int bishop_index = -1;
+
+    for (int i = 0; i < enemy_vec.size(); i++) {
+        if (enemy_vec[i].type == 5) {
+            one_bishop = true;
+            bishop_index = i;
+            break;
+        }
+    }
+
+    if (bishop_index != -1) {
+        if ((_piece.posX + _piece.posY) % 2 == !(enemy_vec[bishop_index].posX + enemy_vec[bishop_index].posY) % 2)
+        {
+            opposite_of_bishop = true;
+        }
+    }
+
+    // checks if pawn is passed (passed means that it has no pieces in front of it)
+    for (int i = 0; i < 8; i++) {
+        pos2d check_pos;
+        check_pos.X = _piece.posX;
+        check_pos.Y = _piece.posY;
+        if ((vec1[i].posX == check_pos.X && vec1[i].posY == check_pos.Y + 1) || (vec2[i].posX == check_pos.X && vec2[i].posY == check_pos.Y + 1))
+        {
+            passed = true;
+        }
+    }
+
+    // calculates distance from center
+    float dist_from_center = sqrt(pow(_piece.posX - 4, 2) + pow(_piece.posY - 4, 2));
+
+    // calculates distances of pawn from king
+    pos2d king_pos;
+    king_pos.X = users_vec[7].posX;
+    king_pos.Y = users_vec[7].posY;
+
+    float dist_from_king = sqrt(pow(_piece.posX - king_pos.X, 2) + pow(_piece.posY - king_pos.Y, 2));
+
+    return !isolated + !backwards + passed + opposite_of_bishop + dist_from_center + dist_from_king;
+}
+
+// calculates how many pieces it could take 
+// take into account protected and unprotected pieces
+// the _pieces pos is set to pos
+int pieces_in_sight(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d pos, bool is_white) {
+
+    vector<piece> users_vec;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    int total = 0;
+
+    for (int i = 0; i < enemy_vec.size(); i++) {
+
+        piece temp_piece = _piece;
+        temp_piece.posX = pos.X;
+        temp_piece.posY = pos.Y;
+
+        pos2d end_pos;
+        end_pos.X = enemy_vec[i].posX;
+        end_pos.Y = enemy_vec[i].posY;
+
+        if (is_move_valid(vec1, vec2, temp_piece, end_pos, is_white) && !is_piece_protected(vec1, vec2, enemy_vec[i], !is_white)) {
+
+            total += 7 - enemy_vec[i].type;
+
+        }
+    }
+
+    return total;
+}
+
+int ai_moves_made = 0;
+// see: https://vision.unipv.it/IA1/ProgrammingaComputerforPlayingChess.pdf, p. 17
+pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
+
+    vector<piece> users_vec;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    pos4d best_pos;
+    int best = 0;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 64; j++) {
+
+            piece end_piece = users_vec[i];
+            end_piece.posX = j % 8;
+            end_piece.posY = floor(j / 8);
+
+            pos2d end_pos;
+            end_pos.X = j % 8;
+            end_pos.Y = floor(j / 8);
+
+            int protected_ = is_piece_protected(vec1, vec2, end_piece, is_white);
+            float pawn = is_pawn_strong(vec1, vec2, end_piece, is_white) / 6;
+            int knight = is_knight_strong(vec1, vec2, end_piece, is_white);
+            float rook = is_rook_strong(vec1, vec2, end_piece, is_white) / 4;
+            int _pieces_in_sight = pieces_in_sight(vec1, vec2, users_vec[i], end_pos, is_white);
+            bool at_risk = is_piece_at_risk(vec1, vec2, is_white, users_vec[i], end_pos, true);
+            if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white)) {
+                float a = (protected_ * 9) + (pawn * 1) + (knight * 8) + (rook * 4) + _pieces_in_sight - ((at_risk * (7 - users_vec[i].type)) * 5);
+                if (a > best) {
+                    best = a;
+                    cout << users_vec[i].display << ",";
+                    best_pos.X = end_pos.X;
+                    best_pos.Y = end_pos.Y;
+                    best_pos.base_index = i;
+                    best_pos.user_reference_vec = &users_vec;
+                }
+            }
+        }
+    }
+
+    // default opening moves (black centric)
+    // see: https://www.masterclass.com/articles/chess-101-what-are-the-best-opening-moves-in-chess-learn-5-tips-for-improving-your-chess-opening
+    // aswell as: https://www.chess.com/article/view/the-best-chess-openings-for-beginners
+
+    // for white & black
+
+    // for white only
+
+
+    // for black only
+    // Sicilian Defense, Najdorf Variation
+    //if () {
+
+    //}
+
+    // Petrov’s Defense
+
+    // regardless of color
+    // The Italian Game
+
+    //1. e4 e5 2.Nf3 Nc6 3.Bc4
+
+    vector<pos2d> starting_moves;
+    pos2d pos;
+    if (is_white) {
+        pos.X = 'E' - 65;
+        pos.Y = 6;
+        starting_moves.push_back(pos);
+
+        pos.X = 'E' - 65;
+        pos.Y = 4;
+        starting_moves.push_back(pos);
+    } else {
+        pos.X = 'E' - 65;
+        pos.Y = 1;
+        starting_moves.push_back(pos);
+
+        pos.X = 'E' - 65;
+        pos.Y = 3;
+        starting_moves.push_back(pos);
+    }
+
+    if (is_white) {
+        pos.X = 'G' - 65;
+        pos.Y = 7;
+        starting_moves.push_back(pos);
+
+        pos.X = 'F' - 65;
+        pos.Y = 5;
+        starting_moves.push_back(pos);
+    } else {
+        pos.X = 'B' - 65;
+        pos.Y = 0;
+        starting_moves.push_back(pos);
+
+        pos.X = 'C' - 65;
+        pos.Y = 2;
+        starting_moves.push_back(pos);
+    }
+
+    if (ai_moves_made < (starting_moves.size() / 2)) {
+        cout << ai_moves_made * 2 << "-AI,";
+        pos4d return_pos;
+        return_pos.X = starting_moves[(ai_moves_made * 2) + 1].X;
+        return_pos.Y = starting_moves[(ai_moves_made * 2) + 1].Y;
+        cout << return_pos.Y << "-END";
+        pos2d start_pos;
+        start_pos.X = starting_moves[(ai_moves_made * 2)].X;
+        start_pos.Y = starting_moves[(ai_moves_made * 2)].Y;
+        cout << start_pos.Y << "-START,";
+        return_pos.base_index = search_for_piece(users_vec, start_pos);
+
+        if (is_white) {
+            return_pos.user_reference_vec = &white_pieces;
+        } else {
+            return_pos.user_reference_vec = &black_pieces;
+        }
+
+        // this is slashed out because normal AI is still fucked up
+        ai_moves_made++;
+
+        return return_pos;
+    }
+
+    ai_moves_made++;
+    return best_pos;
+}
 
 // I.E: A,1
 pos2d str_to_pos(string str_pos) {
@@ -812,7 +1273,7 @@ int main() {
             }
             move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn);
 
-            whites_turn = (!whites_turn);
+            whites_turn = !whites_turn;
 
         } else {
             /*
@@ -833,13 +1294,19 @@ int main() {
 
             //AI:
 
-            vector<pos2d> pos = calc_AI_pos(white_pieces, black_pieces, whites_turn);
-            pos2d start_pos = pos[0];
-            pos2d end_pos = pos[1];
+            pos4d pos = calc_AI_pos(white_pieces, black_pieces, whites_turn);
+            pos2d start_pos;
+            start_pos.X = (*pos.user_reference_vec)[pos.base_index].posX;
+            start_pos.Y = (*pos.user_reference_vec)[pos.base_index].posY;
+            pos2d end_pos;
+            end_pos.X = pos.X;
+            end_pos.Y = pos.Y;
+            cout << "\n STARTPOS: " << start_pos.X << "X, " << start_pos.Y << "Y";
+            cout << "\n ENDPOS: " << end_pos.X << "X, " << end_pos.Y << "Y\n";
 
             move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn);
 
-            whites_turn = (!whites_turn);
+            whites_turn = !whites_turn;
 
         }
 
@@ -847,4 +1314,6 @@ int main() {
     }
 
     return 0;
+}
+
 }
