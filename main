@@ -1598,7 +1598,7 @@ int main() {
 
         }
         cout << "WHY";
-        //render_board(white_pieces, black_pieces);
+        render_board(white_pieces, black_pieces);
         cout << "WHY1";
     }
 
