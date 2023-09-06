@@ -1360,7 +1360,7 @@ pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
 
     //1. e4 e5 2.Nf3 Nc6 3.Bc4
 
-    vector<pos2d> starting_moves;
+    /*vector<pos2d> starting_moves;
     pos2d pos;
     if (is_white) {
         pos.X = 'E' - 65;
@@ -1419,8 +1419,8 @@ pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
         // this is slashed out because normal AI is still fucked up
         ai_moves_made++;
 
-        return return_pos;
-    }
+        //return return_pos;
+    }*/
 
     ai_moves_made++;
     return highest_cords[0];
@@ -1499,7 +1499,7 @@ void render_board(vector<piece> vec1, vector<piece> vec2) {
     cout << ("Test");
 }
 
-// reproduce error via::
+// reproduce error via:
 // g,1 -> f,2
 // g,2 -> f,2
 // f,1 -> e,1
@@ -1604,3 +1604,4 @@ int main() {
 
     return 0;
 }
+
