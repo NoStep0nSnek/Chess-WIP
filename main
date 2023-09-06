@@ -5,6 +5,9 @@
 #include <cmath>
 #include <bits/stdc++.h> // gives std::find
 
+const float board_width = 8;
+const float board_height = 8;
+
 namespace pieces {
     class piece {
         public:
@@ -221,6 +224,7 @@ void init_boards() {
     black_pieces.push_back(king);
 }
 
+//checks all of the pieces in the users array to see if the target pos is taken
 bool is_pos_taken(vector<piece> vec1, vector<piece> vec2, int posX, int posY, bool is_white, bool both) {
 /*
 checks all of the pieces in the arrays to see if the target pos is taken
@@ -397,49 +401,45 @@ vector<pos2d> get_moves_straight(vector<piece> vec1, vector<piece> vec2, int sco
 }
 
 vector<pos2d> get_moves_pawns(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
-        
+    
     vector<pos2d> valid_moves;
 
-    int a = 1;
+    int max = 1;
 
     if (is_white) {
-        a = -1;
+        max = -1;
     }
 
     if (!is_white && _piece.posY == 1) {
-        a = 2;
+        max = 2;
     }
 
     if (is_white && _piece.posY == 6) {
-        a = -2;
+        max = -2;
     }
 
-    if (is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + a, is_white, false)) {
-        pos2d move;
-        move.X = _piece.posX;
-        move.Y = _piece.posY + a;
-        valid_moves.push_back(move);
-    }
+    for (int i = 1; i < abs(max) + 1; i++) {
+        int a = i * (max / abs(max));
+        if (is_pos_taken(vec1, vec2, _piece.posX + 1, _piece.posY + a, !is_white, true)) {
+            pos2d move;
+            move.X = _piece.posX + 1;
+            move.Y = _piece.posY + a;
+            valid_moves.push_back(move);
+        }
 
-    if (is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + a, is_white, false)) {
-        pos2d move;
-        move.X = _piece.posX - 1;
-        move.Y = _piece.posY + a;
-        valid_moves.push_back(move);
-    }
+        if (is_pos_taken(vec1, vec2, _piece.posX - 1, _piece.posY + a, !is_white, true)) {
+            pos2d move;
+            move.X = _piece.posX - 1;
+            move.Y = _piece.posY + a;
+            valid_moves.push_back(move);
+        }
 
-    if (!is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + a, is_white, true)) { // set to both as it can't attack pieces directly in front of it
-        pos2d move;
-        move.X = _piece.posX;
-        move.Y = _piece.posY + a;
-        valid_moves.push_back(move);
-    }
-
-    if (!is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + (a / abs(a)), is_white, true)) { // set to both as it can't attack pieces directly in front of it
-        pos2d move;
-        move.X = _piece.posX;
-        move.Y = _piece.posY + (a / abs(a));
-        valid_moves.push_back(move);
+        if (!is_pos_taken(vec1, vec2, _piece.posX, _piece.posY + a, is_white, false)) { // set to both as it can't attack pieces directly in front of it
+            pos2d move;
+            move.X = _piece.posX;
+            move.Y = _piece.posY + a;
+            valid_moves.push_back(move);
+        }
     }
 
     return valid_moves;
@@ -504,7 +504,7 @@ vector<pos2d> get_moves_knight(vector<piece> vec1, vector<piece> vec2, piece _pi
 }
 /*
 searches for a piece in an array at a given position. If it finds it the func returns
-the index of the piece.
+the index of the piece. Returns -1 if it fails to find the piece.
 */
 int search_for_piece(vector<piece> arr, pos2d pos) {
     //if (is_white) {
@@ -537,7 +537,7 @@ bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
         enemy_vec = vec1;
     }
 
-    if (AI == false) {
+    if (!AI) {
         for (int i = 0; i < users_vec.size(); i++) {
             if (users_vec[i].posX == endpos.X && users_vec[i].posY == endpos.Y) {
                 return false;
@@ -548,9 +548,6 @@ bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
     if (_piece.type == 1 || _piece.type == 2 || _piece.type == 4) {
         vector<pos2d> moves_straight = get_moves_straight(vec1, vec2, getscope(_piece.type), _piece, is_white);
         for (int i = 0; i < moves_straight.size(); i++) {
-            if (is_white) {
-                cout << _piece.posY << "S,";
-            }
             if (moves_straight[i].X == endpos.X && moves_straight[i].Y == endpos.Y) {
                 return true;
             }
@@ -594,6 +591,9 @@ bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
         vector<pos2d> moves_pawns = get_moves_pawns(vec1, vec2, _piece, is_white);
         for (int i = 0; i < moves_pawns.size(); i++) {
             if (moves_pawns[i].X == endpos.X && moves_pawns[i].Y == endpos.Y) {
+                //if (endpos.X == 5) {
+                    //cout << "X:" << moves_pawns[i].X << ", Y:" << moves_pawns[i].Y << "|";
+                //}
                 //cout << "MP" << (moves_pawns[i].Y == endpos.Y) << "|";
                 return true;
             }
@@ -604,7 +604,9 @@ bool is_move_valid (vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
 }
 
 // checks to see if is_white can checkmate !is_white
-int is_in_check_or_checkmate(vector<piece> vec1, vector<piece> vec2, bool is_white) {
+// returns 0 if not, 1 if check, 2 if checkmate
+// does it account for the fact that altough the king can be the initaitor, the rook may not be able to do the same?
+int is_in_check_or_checkmate(vector<piece> vec1, vector<piece> vec2, bool is_white, pos2d ai_pos) {
 
     vector<piece> users_vec;
     vector<piece> enemy_vec;
@@ -659,6 +661,69 @@ int is_in_check_or_checkmate(vector<piece> vec1, vector<piece> vec2, bool is_whi
 // vec2 = black
 bool move_pos(vector<piece>& vec1, vector<piece>& vec2, pos2d start_pos, pos2d end_pos, bool is_white) {
 
+    // see: https://stackoverflow.com/questions/7713266/how-can-i-change-the-variable-to-which-a-c-reference-refers
+
+    vector<piece>* ptr_users_vec = &vec1;
+    vector<piece>* ptr_enemy_vec = &vec2;
+
+    if (is_white) {
+        ptr_users_vec = &vec1;
+        ptr_enemy_vec = &vec2;
+    } else {
+        ptr_users_vec = &vec2;
+        ptr_enemy_vec = &vec1;
+    }
+
+    // check if piece exists
+    int a = search_for_piece(*ptr_users_vec, start_pos);
+    int b = search_for_piece(*ptr_users_vec, end_pos);
+
+    piece _piece;
+    piece end_piece;
+
+    if (a != -1) {
+        _piece = (*ptr_users_vec)[a];
+    } else {
+        printf("a = %d | Start position not found.\n", a);
+        return 0;
+    }
+    if (b != -1) {
+        end_piece = (*ptr_users_vec)[b];
+        cout << "Position is taken.";
+        return 0;
+    }
+
+    if (is_move_valid(white_pieces, black_pieces, _piece, end_pos, is_white)) {
+        cout << "VALID, A: " << a << "," << (*ptr_users_vec)[a].posX << "," << (*ptr_users_vec)[a].posY << "\n";
+        (*ptr_users_vec)[a].posX = end_pos.X;
+        (*ptr_users_vec)[a].posY = end_pos.Y;
+        cout << "GO";
+        for (int j = 0; j < 16; j++) {
+            piece i = (*ptr_enemy_vec)[j];
+            //cout << " j:" << j;
+            if (i.posX == (*ptr_users_vec)[a].posX && i.posY == (*ptr_users_vec)[a].posY) {
+                i.type = -1;
+                i.display = ' ';
+                cout << "Piece captured. (Line 707)";
+            }
+        }
+        // does fim.
+        cout << "FIN";
+
+    } else {
+        cout << "INVALID MOVE\n";
+
+        return 0;
+    }
+
+    return 1;
+}
+
+
+// type (1 = row, 2 = column, 3 = diagonal)
+
+bool is_piece_at_risk(vector<piece> vec1, vector<piece> vec2, bool is_white, piece _piece, pos2d pos, bool use_my_pos) {
+
     vector<piece> *users_vec;
     vector<piece> *enemy_vec;
 
@@ -670,76 +735,16 @@ bool move_pos(vector<piece>& vec1, vector<piece>& vec2, pos2d start_pos, pos2d e
         enemy_vec = &vec1;
     }
 
-    // check if piece exists
-    int a = search_for_piece(*users_vec, start_pos);
-    int b = search_for_piece(*users_vec, end_pos);
+    pos2d temp_pos;
+    temp_pos.X = _piece.posX;
+    temp_pos.Y = _piece.posY;
+    int index = search_for_piece(*users_vec, temp_pos);
 
-    piece _piece;
-    piece end_piece;
+    (*users_vec)[index].posX == pos.X;
+    (*users_vec)[index].posY == pos.Y;
 
-    if (a != -1) {
-        _piece = (*users_vec)[a];
-    } else {
-        printf("a = %d | start pos not found\n", a);
-        return -1;
-    }
-    if (b != -1) {
-        end_piece = (*users_vec)[b];
-    }
-
-    bool to_castle = false;
-
-    if (!(white_pieces[search_for_piece(*users_vec, start_pos)].type == 1 && white_pieces[search_for_piece(*users_vec, end_pos)].type == 4)) {
-        //to_castle = true;
-    } else if (!(white_pieces[search_for_piece(*users_vec, end_pos)].type == 4 && white_pieces[search_for_piece(*users_vec, start_pos)].type == 1)) {
-        //to_castle = true;
-    }
-
-    if (to_castle) {
-        int midpoint = ceil(start_pos.X + end_pos.X) / 2;
-        int sign = (start_pos.X - end_pos.X) / abs(start_pos.X - end_pos.X);
-
-        (*users_vec)[a].posX = end_pos.X;
-        (*users_vec)[b].posX = start_pos.X;
-    } else {
-        if (is_move_valid(white_pieces, black_pieces, _piece, end_pos, is_white)) {
-            cout << "VALID\n";
-            (*users_vec)[a].posX = end_pos.X;
-            (*users_vec)[a].posY = end_pos.Y;
-        } else {
-            cout << "INVALID MOVE\n";
-        }
-    }
-
-    return 0;
-}
-
-
-// type (1 = row, 2 = column, 3 = diagonal)
-
-bool is_piece_at_risk(vector<piece> vec1, vector<piece> vec2, bool is_white, piece _piece, pos2d pos, bool use_my_pos) {
-
-    vector<piece> users_vec;
-    vector<piece> enemy_vec;
-
-    if (is_white) {
-        users_vec = vec1;
-        enemy_vec = vec2;
-    } else {
-        users_vec = vec2;
-        enemy_vec = vec1;
-    }
-
-    for (int i = 0; i < 8; i++) {
-        pos2d end_pos;
-        end_pos.X = _piece.posX;
-        end_pos.Y = _piece.posY;
-
-        if (pos.X != -1) {
-            end_pos = pos;
-        }
-
-        if (is_move_valid(vec1, vec2, enemy_vec[i], end_pos, !is_white)) {
+    for (int i = 0; i < 16; i++) {
+        if (is_move_valid(vec1, vec2, (*enemy_vec)[i], pos, !is_white)) {
             return true;
         }
     }
@@ -750,14 +755,27 @@ bool is_piece_at_risk(vector<piece> vec1, vector<piece> vec2, bool is_white, pie
 bool is_piece_protected(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
 
     vector<piece> &users_vec = vec1;
-    vector<piece> &enemy_vec = vec1;
-    
+    vector<piece> &enemy_vec = vec2;
+
+    // I must set enemy_vec to an empty vec with the piece in it because of the way the is_move_valid() function works, and due to the fact that the position of the piece in the users vec is not updated to temporary position
+
     if (is_white) {
-        users_vec = vec1;
-        enemy_vec = vec2;
+        // for (int i = 0; i < 16; i++) {
+        //     if (vec1[i].posX == _piece.posX && vec1[i].posY == _piece.posY) {
+        //         //vec1[i].posX = -1;
+        //         break;
+        //     }
+        // }   
     } else {
         users_vec = vec2;
         enemy_vec = vec1;
+        // vec1 = enemy_vec;
+        // for (int i = 0; i < 16; i++) {
+        //     if (vec2[i].posX == _piece.posX && vec2[i].posY == _piece.posY) {
+        //         //vec2[i].posX = -1;
+        //         break;
+        //     }
+        // }   
     }
 
     /*int index = 0;
@@ -767,24 +785,82 @@ bool is_piece_protected(vector<piece> vec1, vector<piece> vec2, piece _piece, bo
             break;
         }
     }*/
-
-    pos2d endpos;
-    endpos.X = _piece.posX;
-    endpos.Y = _piece.posY;
     
-    _piece.posX -= 10;
+    pos2d end_pos;
+    end_pos.X = _piece.posX;
+    end_pos.Y = _piece.posY;
 
-    for (int i = 0; i < 8; i++) {
-        if (is_move_valid(vec1, vec2, _piece, endpos, is_white, true)) {
+    for (int i = 0; i < 16; i++) {
+        /*if (end_pos.X == 5 && end_pos.Y == 2 && users_vec[i].posX == 5 && users_vec[i].posY == 1) {
+            cout << "ENDPOS: " << end_pos.X << ", " << end_pos.Y << " | ";
+            cout << "USERVEC[I]: " << users_vec[i].posX << ", " << users_vec[i].posY << " | ";
+        }
+        if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white, true)) {
+            cout << "PROTECTED!";
+        }*/
+
+        if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white, false) && users_vec[i].posX != _piece.posX && users_vec[i].posY != _piece.posY) {
+            cout << "ENDPOS: " << end_pos.X << ", " << end_pos.Y << " | ";
+            cout << "PROTECTED2!";
             return true;
         }
     }
     
-    _piece.posX += 10;
-
     return false;
 }
 
+// returns the total value of the pieces it is protecting (7 - piece.type) to give accurate results
+// error is here
+
+int is_piece_protecting(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d end_pos, bool is_white) {
+
+    cout << "A";
+    vector<piece>& users_vec = vec1;
+    vector<piece>& enemy_vec = vec2;
+
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    pos2d pos;
+    pos.X = _piece.posX;
+    pos.X = _piece.posY;
+
+    int index = search_for_piece(users_vec, pos);
+    //cout << "X: " << end_pos.X << ", Y: " << end_pos.Y << " | ";
+    //cout << "Index: " << index << " | ";
+    (vec2)[index].posX = end_pos.X;
+    (vec2)[index].posY = end_pos.Y;
+
+    int total = 0;
+
+    for (int i = 0; i < 16; i++) {
+
+        int index = search_for_piece(users_vec, end_pos);
+
+        if (_piece.type == 6) { // if pawn
+            vector<piece> tmp_vec(16);
+            tmp_vec[0] = (users_vec)[i];
+            if (is_white) {
+                //vec2 = tmp_vec;
+            } else {
+                //vec1 = tmp_vec;
+            }
+        }
+
+        if (is_move_valid(vec1, vec2, _piece, end_pos, is_white)) {
+            total += 7 - (users_vec)[i].type;
+        }
+    }
+
+    return total;
+}
+
+// valid moves for pawns need to both vectors, that is the issue
 bool is_blocked(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d end_pos, int type, bool is_white) {
     if (type == 1) {
         int min = std::min(_piece.posX, end_pos.X);
@@ -828,31 +904,33 @@ int is_rook_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is
     }
     
 
-    vector<piece> user_vec;
+    vector<piece> users_vec;
+    //vector<piece>* users_vec_reference;
     vector<piece> enemy_vec;
 
     if (is_white) {
-        user_vec = vec1;
+        users_vec = vec1;
+        //users_vec_reference = &vec1;
         enemy_vec = vec2;
     } else {
         enemy_vec = vec1;
-        user_vec = vec2;
+        users_vec = vec2;
     }
 
     // checks if rook is doubled (next to or above each other)
-    for (int i = 0; i < user_vec.size(); i++) {
+    for (int i = 0; i < users_vec.size(); i++) {
         // is row or column blocked?
-        if (user_vec[i].type = _piece.type) {
+        if (users_vec[i].type = _piece.type) {
 
             pos2d end_pos;
-            end_pos.X = user_vec[i].posX;
-            end_pos.Y = user_vec[i].posY;
+            end_pos.X = users_vec[i].posX;
+            end_pos.Y = users_vec[i].posY;
 
-            if (!is_blocked(vec1, vec2, _piece, end_pos, 1, is_white) && user_vec[i].posX == _piece.posX) {
+            if (!is_blocked(vec1, vec2, _piece, end_pos, 1, is_white) && users_vec[i].posX == _piece.posX) {
                 doubled_on_X = true;
             }
 
-            if (!is_blocked(vec1, vec2, _piece, end_pos, 2, is_white) && user_vec[i].posY == _piece.posY) {
+            if (!is_blocked(vec1, vec2, _piece, end_pos, 2, is_white) && users_vec[i].posY == _piece.posY) {
                 doubled_on_Y = true;
             }
         }
@@ -866,6 +944,7 @@ int is_rook_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is
     // checks if the file that the rook is on is open (returns an int from 1 - 8; 8 being completely full)
     int open_pieces_x = 0;
 
+
     for (int i = 0; i < 8; i++) {
         int max_upper = _piece.posY;
         int max_lower = _piece.posY;
@@ -877,12 +956,12 @@ int is_rook_strong(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is
                 max_upper =  enemy_vec[i].posY;
             }
         }
-        if (user_vec[i].posX == _piece.posX) {
-            if (user_vec[i].posY > max_upper && max_upper != _piece.posY) {
-                max_upper =  user_vec[i].posY;
+        if (users_vec[i].posX == _piece.posX) {
+            if (users_vec[i].posY > max_upper && max_upper != _piece.posY) {
+                max_upper =  users_vec[i].posY;
             }
-            if (user_vec[i].posY < max_lower && max_lower != _piece.posY) {
-                max_upper =  user_vec[i].posY;
+            if (users_vec[i].posY < max_lower && max_lower != _piece.posY) {
+                max_upper =  users_vec[i].posY;
             }
         }
     }
@@ -1036,8 +1115,8 @@ int pieces_in_sight(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
         end_pos.X = enemy_vec[i].posX;
         end_pos.Y = enemy_vec[i].posY;
 
-        if (is_move_valid(vec1, vec2, temp_piece, end_pos, is_white) && !is_piece_protected(vec1, vec2, enemy_vec[i], !is_white)) {
-
+        if (is_move_valid(vec1, vec2, temp_piece, end_pos, is_white)) {
+            cout << "IN-SIGHT";
             total += 7 - enemy_vec[i].type;
 
         }
@@ -1046,9 +1125,10 @@ int pieces_in_sight(vector<piece> vec1, vector<piece> vec2, piece _piece, pos2d 
     return total;
 }
 
-int ai_moves_made = 0;
-// see: https://vision.unipv.it/IA1/ProgrammingaComputerforPlayingChess.pdf, p. 17
-pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
+int users_pieces_blocked(vector<piece> vec1, vector<piece> vec2, piece _piece, bool is_white) {
+
+    int num_moves_before_invis = 0;
+    int num_moves_after_invis = 0;
 
     vector<piece> users_vec;
     vector<piece> enemy_vec;
@@ -1061,36 +1141,200 @@ pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
         enemy_vec = vec1;
     }
 
-    pos4d best_pos;
-    int best = 0;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 64; j++) {
-
-            piece end_piece = users_vec[i];
-            end_piece.posX = j % 8;
-            end_piece.posY = floor(j / 8);
-
+    for (int i = 0; i < users_vec.size(); i++) {
+        for (int j = 0; j < enemy_vec.size(); j++) {
             pos2d end_pos;
-            end_pos.X = j % 8;
-            end_pos.Y = floor(j / 8);
-
-            int protected_ = is_piece_protected(vec1, vec2, end_piece, is_white);
-            float pawn = is_pawn_strong(vec1, vec2, end_piece, is_white) / 6;
-            int knight = is_knight_strong(vec1, vec2, end_piece, is_white);
-            float rook = is_rook_strong(vec1, vec2, end_piece, is_white) / 4;
-            int _pieces_in_sight = pieces_in_sight(vec1, vec2, users_vec[i], end_pos, is_white);
-            bool at_risk = is_piece_at_risk(vec1, vec2, is_white, users_vec[i], end_pos, true);
+            end_pos.X = enemy_vec[j].posX;
+            end_pos.Y = enemy_vec[j].posY;
             if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white)) {
-                float a = (protected_ * 9) + (pawn * 1) + (knight * 8) + (rook * 4) + _pieces_in_sight - ((at_risk * (7 - users_vec[i].type)) * 5);
-                if (a > best) {
-                    best = a;
-                    cout << users_vec[i].display << ",";
-                    best_pos.X = end_pos.X;
-                    best_pos.Y = end_pos.Y;
-                    best_pos.base_index = i;
-                    best_pos.user_reference_vec = &users_vec;
+                num_moves_after_invis += (7 - enemy_vec[j].type);
+            }
+        }
+    }
+
+
+    pos2d tmp_pos;
+    tmp_pos.X = _piece.posX;
+    tmp_pos.Y = _piece.posY;
+
+    int index = search_for_piece(users_vec, tmp_pos);
+
+    if (is_white) {
+        vec1[index].posX = -1;
+    } else {
+        vec2[index].posX = -1;
+    }
+
+    for (int i = 0; i < vec1.size(); i++) {
+        for (int j = 0; j < enemy_vec.size(); j++) {
+            pos2d end_pos;
+            end_pos.X = enemy_vec[j].posX;
+            end_pos.Y = enemy_vec[j].posY;
+            if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white)) {
+                num_moves_before_invis += (7 - enemy_vec[j].type);
+            }
+        }
+    }
+
+    return num_moves_after_invis - num_moves_before_invis;
+}
+
+bool is_piece_blocking_castle(pos2d pos, bool is_white) {
+    if (is_white && (pos.X == 6 || pos.Y == 7  || pos.Y == 7 || pos.Y == 7)) {
+        return true;
+    }
+
+    if (!is_white && (pos.X == 6 || pos.X == 7  || pos.Y == 0 || pos.Y == 0)) {
+        return true;
+    }
+
+    return false;
+}
+
+/* returns 0 if not, returns value of enemy piece if so
+not does check if move is valid, should be done elsewhere in the code */
+int does_move_capture_piece(vector<piece> vec1, vector<piece> vec2, piece, pos2d end_pos, bool is_white) {
+    
+    vector<piece> users_vec;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        users_vec = vec1;
+        enemy_vec = vec2;
+    } else {
+        users_vec = vec2;
+        enemy_vec = vec1;
+    }
+
+    int index = search_for_piece(enemy_vec, end_pos);
+
+    if (index) {
+        return users_vec[index].type;
+    }
+
+    return 0;
+}
+
+int ai_moves_made = 0;
+// see: https://vision.unipv.it/IA1/ProgrammingaComputerforPlayingChess.pdf, p. 17
+// Could use improvement. A should also calculate the risk faced by potential enemy moves.
+// Some stuff has been commented out to improve performance - Idea: Reduce load as o increases
+// As accuracy decreases, I should decrease the weight of variable a
+// I should add pos to piece class and replace vec1 and vec2 with users_vec and enemy_vec globally
+
+pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
+
+    // I still need to make it so that pawns defend castled king
+    // I also need to make castling a thing
+
+    vector<piece> vec1_copy = vec1;
+    vector<piece> vec2_copy = vec2;
+
+    vector<piece> users_vec;
+    vector<piece>* users_vec_reference;
+    vector<piece> enemy_vec;
+
+    if (is_white) {
+        users_vec = vec1_copy;
+        users_vec_reference = &vec1_copy;
+        enemy_vec = vec2_copy;
+    } else {
+        users_vec = vec2_copy;
+        users_vec_reference = &vec2_copy;
+        enemy_vec = vec1_copy;
+    }
+
+    vector<pos4d> best_pos(2);
+    vector<float> best(2,0);
+    float highest = 0;
+    vector<pos4d> highest_cords(2);
+
+    int reduce_point = 1; // when o reaches this number, decrease load to decrease computation time
+
+    for (int o = 0; o < 1; o++) {
+        for (int i = 0; i < 16; i++) {
+            for (int j = 0; j < 64; j++) {
+
+                piece end_piece = users_vec[i];
+                end_piece.posX = j % 8;
+                end_piece.posY = floor(j / 8);
+
+                pos2d end_pos;
+                end_pos.X = j % 8;
+                end_pos.Y = floor(j / 8);
+
+                if (is_move_valid(vec1, vec2, users_vec[i], end_pos, is_white)) {
+                    cout << "A";
+                    float protected_ = is_piece_protected(vec1, vec2, end_piece, is_white);
+                    cout << "B";
+                    int protecting = is_piece_protecting(vec1, vec2, users_vec[i], end_pos, is_white);
+                    cout << "C";
+                    float pawn = is_pawn_strong(vec1, vec2, end_piece, is_white) / 6;
+                    float knight = is_knight_strong(vec1, vec2, end_piece, is_white);
+                    float rook = is_rook_strong(vec1, vec2, end_piece, is_white) / 4;
+                    float _pieces_in_sight = pieces_in_sight(vec1, vec2, users_vec[i], end_pos, is_white); // enemy pieces in sight
+                    //float _pieces_in_sight = 0;
+                    bool at_risk = is_piece_at_risk(vec1, vec2, is_white, users_vec[i], end_pos, true);
+                    float dist_from_center = abs(pow(float(j % 8 - 4), 2.0) + pow(float(floor(j / 8) - 4), 2.0));
+                    //bool is_blocking_castle = is_piece_blocking_castle(end_pos, is_white);
+                    int pieces_blocked = users_pieces_blocked(vec1, vec2, users_vec[i], is_white); // returns the number of pieces is it blocking from making a move on teh enemy, considering importance of enemy piece
+                    int is_blocking_castle = 0;
+                    //int pieces_blocked = 0;
+                    int move_captures_piece = 7 - does_move_capture_piece(vec1, vec2, users_vec[i], end_pos, is_white); // does the move result in the capture of an enemy piece?
+
+                    pos2d tmp_pos;
+                    tmp_pos.X = users_vec[i].posX;
+                    tmp_pos.Y = users_vec[i].posY;
+
+                    int index = search_for_piece(users_vec, tmp_pos);
+                    
+                    vector<piece> vec1_copy2 = vec1;
+                    vector<piece> vec2_copy2 = vec2;
+
+                    if (is_white) {
+                        vec1_copy2[index].posX = end_pos.X;
+                        vec1_copy2[index].posY = end_pos.Y;
+                    } else {
+                        vec2_copy2[index].posX = end_pos.X;
+                        vec2_copy2[index].posY = end_pos.Y;
+                    }
+
+                    int check_or_checkmate = is_in_check_or_checkmate(vec1_copy2, vec2_copy2, is_white, end_pos);
+                    int should_AI_caslte = can_castle(vec1, vec2, users_vec[i], users_vec[9], is_white);
+                    //returns 0 if nothing, 1 if check, 2 if checkmate.
+
+                    
+                    float a = (exp(check_or_checkmate * 5), 2) + (protected_ * 15) + (pawn * 1) + (knight * 4) + (rook * 5) + (_pieces_in_sight * 1) + (protecting * 5) + (7 - users_vec[i].type) - ((at_risk * (7 - users_vec[i].type)) * 5) + (9 - dist_from_center) + (move_captures_piece * 25) - (at_risk * 15) - pieces_blocked - (is_blocking_castle * 3);
+
+                    if (a < 1) { // a must be at least one to avoid seg fault
+                        a = 1;
+                    }
+
+                    //cout << " - A: " << a << ",";
+
+                    if (a > best[o]) {
+                        best[o] = a;
+                        cout << users_vec[i].posY << "F,";
+                        best_pos[o].X = end_pos.X;
+                        best_pos[o].Y = end_pos.Y;
+                        best_pos[o].base_index = i;
+                        if (is_white) {
+                            best_pos[o].user_reference_vec = &white_pieces;
+                        } else {
+                            best_pos[o].user_reference_vec = &black_pieces;
+                        }
+                    }
+                }
+
+                if (best[0] + best[1] > highest) {
+                    highest = best[0] + best[1];
+                    highest_cords[o] = best_pos[o];
                 }
             }
+
+            (*users_vec_reference)[i].posX = best_pos[o].X;
+            (*users_vec_reference)[i].posY = best_pos[o].Y;
+            
         }
     }
 
@@ -1179,7 +1423,7 @@ pos4d calc_AI_pos(vector<piece> vec1, vector<piece> vec2, bool is_white) {
     }
 
     ai_moves_made++;
-    return best_pos;
+    return highest_cords[0];
 }
 
 // I.E: A,1
@@ -1202,23 +1446,32 @@ pos2d str_to_pos(string str_pos) {
     return pos;
 }
 
+// seg faults on the row H
 void render_board(vector<piece> vec1, vector<piece> vec2) {
 
     //printf("\033c"); // clears board
 
-    printf("   |   |   |   |   |   |   |   |   \n");
+    //printf("   |   |   |   |   |   |   |   |   \n");
     printf("   ");
     for (int i = 0; i < 8; i++) {
+        //cout << i + 49;
         printf("| %c ", i + 49);
     }
-    printf("\n   |   |   |   |   |   |   |   |   \n");
-    printf("-----------------------------------\n");
+    //printf("\n   |   |   |   |   |   |   |   |   \n");
+    printf("\n-----------------------------------\n");
+    // error is here
+    // on k:10
     for (int i = 0; i < 8; i++) {
-        printf("   |   |   |   |   |   |   |   |   \n");
+        //printf("   |   |   |   |   |   |   |   |   \n");
         printf(" %c |", i + 65);
         for (int j = 0; j < 8; j++) {
             bool printed_char = false;
             for (int k = 0; k < 16; k++) {
+                //cout << "Size: " << vec1.size() << ",";
+                //cout << "K:" << k << ",";
+                //cout << "pos.X:" << vec1[k].posX << ",";
+                // pos.y is undefined?
+                //cout << "pos.Y:" << vec1[k].posY << ",";
                 if (vec1[k].posX == j && vec1[k].posY == i) {
                     printf("W.%c", vec1[k].display);
                     printed_char = true;
@@ -1238,12 +1491,18 @@ void render_board(vector<piece> vec1, vector<piece> vec2) {
                 printf("|");
             }
         }
-        printf("\n   |   |   |   |   |   |   |   |   \n");
+        //printf("\n   |   |   |   |   |   |   |   |   \n");
         if (i < 7) {
-            printf("-----------------------------------\n");
+            printf("\n-----------------------------------\n");
         }
     }
+    cout << ("Test");
 }
+
+// reproduce error via::
+// g,1 -> f,2
+// g,2 -> f,2
+// f,1 -> e,1
 
 int main() {
 
@@ -1257,27 +1516,50 @@ int main() {
     while (!(white_won || black_won)) {
         
         if (whites_turn) {
+            bool invalid_move = true;
 
-            printf("\nIt is whites turn. Enter the position of a piece that you would like to move: ");
-            string answer;
-            std::getline (std::cin, answer);
-            pos2d start_pos = str_to_pos(answer);
-            if (start_pos.X == -1){
-                printf("Invalid Pos.");
-            }
-            printf("\nEnter a position on the board to move it to: ");
-            std::getline (std::cin, answer);
-            pos2d end_pos = str_to_pos(answer);
-            if (end_pos.X == -1){
-                printf("Invalid Pos.");
-            }
-            move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn);
+            while (invalid_move) {
+                REDO:
+                printf("\n\nIt is whites turn. Enter the position of a piece that you would like to move: ");
+                string answer;
+                std::getline (std::cin, answer);
+                pos2d start_pos = str_to_pos(answer);
+                
+                if (start_pos.X == -1 || search_for_piece(white_pieces, start_pos) == -1){
+                    printf("Invalid Pos.");
+                    invalid_move = true;
+                    goto REDO;
+                }
+                
+                printf("\nEnter a position on the board to move it to: ");
+                std::getline (std::cin, answer);
+                pos2d end_pos = str_to_pos(answer);
+                if (end_pos.X == -1 && search_for_piece(white_pieces, end_pos) != -1){
+                    printf("Invalid Pos.");
+                    invalid_move = true;
+                    goto REDO;
+                }
 
-            whites_turn = !whites_turn;
+                cout << "B";
+                
+                for (int i = 0; i < 16; i++) {
+                    cout << "i: " << i << "," << white_pieces[i].display << "," << black_pieces[i].display  << ",";
+                }
+                // seg fault here, on third turn?
+                if (move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn) == 1) {
+                    whites_turn = !whites_turn;
+                    invalid_move = false;
+                } else {
+                    invalid_move = true;
+                    goto REDO;
+                }
+
+                cout << "N";
+            }
 
         } else {
             /*
-            printf("\nIt is blacks turn. Enter the position of a piece that you would like to move: ");
+            printf("\n\nIt is blacks turn. Enter the position of a piece that you would like to move: ");
             string answer;
             std::getline (std::cin, answer);
             pos2d start_pos = str_to_pos(answer);
@@ -1293,8 +1575,9 @@ int main() {
             */
 
             //AI:
-
+            cout << "AI1";
             pos4d pos = calc_AI_pos(white_pieces, black_pieces, whites_turn);
+            cout << "AI2";
             pos2d start_pos;
             start_pos.X = (*pos.user_reference_vec)[pos.base_index].posX;
             start_pos.Y = (*pos.user_reference_vec)[pos.base_index].posY;
@@ -1304,16 +1587,20 @@ int main() {
             cout << "\n STARTPOS: " << start_pos.X << "X, " << start_pos.Y << "Y";
             cout << "\n ENDPOS: " << end_pos.X << "X, " << end_pos.Y << "Y\n";
 
-            move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn);
+            // cout << "O";
+            // for (int i = 0; i < 16; i++) {
+            //     cout << "i: " << i << "," << black_pieces[i].display << ",";
+            // }
 
+            move_pos(white_pieces, black_pieces, start_pos, end_pos, whites_turn); // commenting this line out fixes seg fault... but why?
+            cout << "P";
             whites_turn = !whites_turn;
 
         }
-
-        render_board(white_pieces, black_pieces);
+        cout << "WHY";
+        //render_board(white_pieces, black_pieces);
+        cout << "WHY1";
     }
 
     return 0;
-}
-
 }
